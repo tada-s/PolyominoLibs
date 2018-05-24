@@ -37,13 +37,15 @@ int main(int argc, char* argv[]){
     srand(mix(clock(), time(NULL), getpid()));
 
     if(argc < 3){
-        printf("Syntax: PolyominoGenerator.exe <OutputFile> <blockNumber> [optional: -p] [optional: -r | -a]\n", argv[1]);
+        printf("Syntax: PolyominoGenerator.exe <OutputFile> <blockNumber> [optional: -t <TileFile> | -p | -r | -a]\n", argv[1]);
+        printf("   -t : generate polyominoes using tiles from <TileFile>.\n");
         printf("   -p : print generated polyomino.\n");
         printf("   -r : (default) generate a single random polyomino of size <blockNumber>. \n");
         printf("   -a : generate all polyomino of size <blockNumber>.\n");
         return -1;
     }
     FILE *fpOut;
+    FILE *fpTiles;
     int blockNumber = 0;
 
     fpOut = fopen(argv[1], "w");
@@ -59,18 +61,56 @@ int main(int argc, char* argv[]){
             OPTION_GENERATE = OPTIONVALUE_GENERATE_RANDOM;
         }else if(strcmp(argv[i], "-a") == 0){
             OPTION_GENERATE = OPTIONVALUE_GENERATE_ALL;
+        }else if(strcmp(argv[i], "-t") == 0){
+            if(i + 1 >= argc){
+                printf("Error: <TileFile> not specified.\n");
+                return -3;
+            }
+            fpTiles = fopen(argv[i + 1], "r");
+            if(fpTiles == NULL){
+                printf("Error reading the file %s.\n", argv[i + 1]);
+                return -2;
+            }
+            i++;
         }else{
-            printf("Unknown optional parameter %s\n.", argv[i]);
+            printf("Unknown optional parameter %s.\n", argv[i]);
+        }
+    }
+
+    // Read TileFile if it is specified
+    vector<Tile> tiles;
+    if(fpTiles != NULL){
+        int n;
+        fscanf(fpTiles, "%d", &n);
+        while(n--){
+            Tile t;
+            int m;
+            fscanf(fpTiles, "%d", &m);
+            while(m--){
+                int x, y;
+                fscanf(fpTiles, "%d%d", &x, &y);
+                t.push_back(make_pair(x, y));
+            }
+            tiles.push_back(t);
         }
     }
 
     set<string> tileSet;
     switch(OPTION_GENERATE){
         case OPTIONVALUE_GENERATE_ALL:
-            tileSet = spawnBlock(blockNumber);
+            if(fpTiles != NULL){
+                tileSet = spawnTileBlock(blockNumber, tiles);
+            }else{
+                tileSet = spawnBlock(blockNumber);
+            }
             break;
         case OPTIONVALUE_GENERATE_RANDOM:
-            tileSet.insert(spawnRandomBlock(blockNumber));
+            if(fpTiles != NULL){
+                tileSet.insert(spawnRandomTileBlock(blockNumber, tiles));
+            }else{
+                tileSet.insert(spawnRandomBlock(blockNumber));
+            }
+
             break;
     }
 
@@ -126,22 +166,14 @@ void printTile(string str){
         for(int i = 0; i < boxSize; i++){
             printf("|");
             for(int j = 0; j < boxSize - 1; j++){
-                if(region[i][j] == region[i][j + 1]){
-                    printf("   ");
-                }else{
-                    printf("  |");
-                }
+                printf("  %c", region[i][j] == region[i][j + 1] ? ' ' : '|');
             }
             printf("  |");
             printf("\n");
             if(i != boxSize - 1){
                 printf("+");
                 for(int j = 0; j < boxSize; j++){
-                    if(region[i][j] == region[i + 1][j]){
-                        printf("  +");
-                    }else{
-                        printf("--+");
-                    }
+                    printf("%s+", region[i][j] == region[i + 1][j] ? "  " : "--");
                 }
                 printf("\n");
             }
